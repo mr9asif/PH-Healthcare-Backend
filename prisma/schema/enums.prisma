@@ -16,3 +16,10 @@ enum Gender {
   FEMALE
   OTHER
 }
+
+enum AuthProvider {
+  GOOGLE
+  // ভবিষ্যতে:
+  // GITHUB
+  // FACEBOOK
+}
