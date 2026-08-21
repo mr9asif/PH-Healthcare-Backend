@@ -1,6 +1,7 @@
 import app from "./app";
 import config from "./app/config";
 import { prisma } from "./app/lib/prisma";
+import { reddisClient } from "./app/lib/reddis";
 import {
   seedSuperAdmin,
   seedTesterAdmin,
@@ -12,6 +13,8 @@ const PORT = config.port;
 const main = async () => {
   try {
     await prisma.$connect();
+    await reddisClient.connect();
+    console.log("reddis connect successfully!");
     await seedSuperAdmin();
     await seedTesterAdmin();
     await seedTesterDoctor();
