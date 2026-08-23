@@ -143,12 +143,25 @@ const forgetPassword = catchAsync(
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,
-      message: "Logged In successfully",
+      message: "forget password In successfully",
       data: null,
     });
   },
 );
-const resetPassword = () => {};
+const resetPassword = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const payload = req.body;
+
+    await AuthService.resetPassword(payload);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Password changed In successfully",
+      data: null,
+    });
+  },
+);
 export const AuthController = {
   registerPatient,
   loginUser,

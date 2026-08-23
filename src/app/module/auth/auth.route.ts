@@ -25,12 +25,12 @@ router.get(
 router.post("/refresh-token", AuthController.refreshToken);
 router.post("/google", AuthController.googleLogin);
 router.post(
-  "/forget",
+  "/forget-password",
   // validateRequest(UserValidation.ForgotPasswordZodSchema),
   AuthController.forgetPassword,
 );
 router.post(
-  "/reset",
+  "/reset-password",
   validateRequest(UserValidation.ResetPasswordZodSchema),
   AuthController.resetPassword,
 );
