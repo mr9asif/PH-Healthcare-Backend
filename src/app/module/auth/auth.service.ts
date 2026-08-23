@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { JwtPayload, SignOptions } from "jsonwebtoken";
 import {
   AuthProvider,
@@ -7,8 +8,10 @@ import {
 } from "../../../generated/prisma/enums";
 import config from "../../config";
 import { prisma } from "../../lib/prisma";
+import { reddisClient } from "../../lib/reddis";
 import { jwtUtils } from "../../utils/jwt";
 import {
+  IForgotPasswordPayload,
   IGoogleLogin,
   ILoginUserPayload,
   IRegisterPatientPayload,
@@ -396,10 +399,47 @@ const googleLogin = async (payload: IGoogleLogin) => {
   };
 };
 
+const forgetPassword = async (payload: IForgotPasswordPayload) => {
+  const { email } = payload;
+
+  const exitUser = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      accounts: true,
+    },
+  });
+  if (!exitUser) throw new Error("User not Exit");
+  if (exitUser.status == "BLOCKED") throw new Error("User blocked");
+  if (!exitUser.emailVerified) throw new Error("email not verified");
+  const googleAccount = exitUser.accounts.find(
+    (account) => account.provider === AuthProvider.GOOGLE,
+  );
+
+  if (googleAccount) {
+    throw new Error("You are logged in with google");
+  }
+
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const key = `forgor-password-otp:${exitUser.email}`;
+
+  const expirationSeconds = 5 * 60;
+
+  await reddisClient.set(key, otp, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
+    },
+  });
+};
+
+const resetPassword = () => {};
+
 export const AuthService = {
   registerPatient,
   loginUser,
   getMe,
   refreshToken,
   googleLogin,
+  forgetPassword,
+  resetPassword,
 };
