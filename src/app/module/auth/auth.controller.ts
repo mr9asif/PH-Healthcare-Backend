@@ -143,7 +143,7 @@ const forgetPassword = catchAsync(
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,
-      message: "forget password In successfully",
+      message: "otp send successfully",
       data: null,
     });
   },

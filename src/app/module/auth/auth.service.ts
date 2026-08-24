@@ -435,6 +435,7 @@ const forgetPassword = async (payload: IForgotPasswordPayload) => {
 
   await transporter.sendMail({
     from: config.smtp_sender,
+    subject: "forget Password otp send",
     to: exitUser.email,
     html: `your otp is: ${otp}`,
   });
@@ -503,6 +504,13 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
   });
 
   await reddisClient.del([key]);
+
+  await transporter.sendMail({
+    from: config.smtp_sender,
+    subject: "Changed Password",
+    to: isUserExist.email,
+    html: `<h1>your password is changed.</h1>`,
+  });
 };
 
 export const AuthService = {
