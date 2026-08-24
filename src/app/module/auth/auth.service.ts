@@ -7,6 +7,7 @@ import {
   UserStatus,
 } from "../../../generated/prisma/enums";
 import config from "../../config";
+import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
 import { reddisClient } from "../../lib/reddis";
 import { jwtUtils } from "../../utils/jwt";
@@ -430,6 +431,12 @@ const forgetPassword = async (payload: IForgotPasswordPayload) => {
       type: "EX",
       value: expirationSeconds,
     },
+  });
+
+  await transporter.sendMail({
+    from: config.smtp_sender,
+    to: exitUser.email,
+    html: `your otp is: ${otp}`,
   });
 };
 
