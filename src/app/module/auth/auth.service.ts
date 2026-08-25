@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import ejs from "ejs";
 import { JwtPayload, SignOptions } from "jsonwebtoken";
+import path from "path";
 import {
   AuthProvider,
   Role,
@@ -433,11 +435,23 @@ const forgetPassword = async (payload: IForgotPasswordPayload) => {
     },
   });
 
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/template/forget-password.ejs",
+  );
+  const templateData = {
+    name: exitUser.name,
+    otp,
+    expiryTime: expirationSeconds / 60,
+    appName: "PH-Healthcare",
+  };
+  const html = await ejs.renderFile(templatePath, templateData);
+
   await transporter.sendMail({
     from: config.smtp_sender,
-    subject: "forget Password otp send",
+    subject: "Reset Password otp send",
     to: exitUser.email,
-    html: `your otp is: ${otp}`,
+    html,
   });
 };
 
@@ -505,11 +519,20 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 
   await reddisClient.del([key]);
 
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/template/reset-password.ejs",
+  );
+  const templateData = {
+    name: isUserExist.name,
+    appName: "PH_Healthcare",
+  };
+  const html = await ejs.renderFile(templatePath, templateData);
   await transporter.sendMail({
     from: config.smtp_sender,
     subject: "Changed Password",
     to: isUserExist.email,
-    html: `<h1>your password is changed.</h1>`,
+    html,
   });
 };
 
