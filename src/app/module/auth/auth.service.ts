@@ -515,6 +515,26 @@ const googleLogin = async (payload: IGoogleLogin) => {
     throw new Error("User Is Deleted");
   }
 
+  const tempatePath = path.join(
+    process.cwd(),
+    "src/app/template/patient-welcome-email.ejs",
+  );
+
+  const templateData = {
+    name: user.name,
+    appName: "PH-Healthcare",
+  };
+
+  const html = await ejs.renderFile(tempatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.smtp_sender,
+    to: email,
+    subject: "Welcome To PH Healthcare System",
+    // text : `Your OTP is ${otp}`
+    // html: `<h1>Your OTP is ${otp}</h1>`
+    html,
+  });
   // ============================================
   // 8. Create JWT payload
   // ============================================
