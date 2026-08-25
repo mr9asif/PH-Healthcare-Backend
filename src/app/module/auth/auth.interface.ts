@@ -9,8 +9,19 @@ export interface IRegisterPatientPayload {
   name: string;
   email: string;
   password: string;
+  patient: {
+    contactNumber?: string;
+  };
+}
+export interface IVerifyEmailPayload {
+  email: string;
+  otp: string;
 }
 
+export interface IVerifyPatiendPaload {
+  email: string;
+  otp: string;
+}
 export interface IRequestUser {
   userId: string;
   email: string;

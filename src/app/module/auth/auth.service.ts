@@ -20,6 +20,7 @@ import {
   IRegisterPatientPayload,
   IRequestUser,
   IResetPasswordPayload,
+  IVerifyPatiendPaload,
 } from "./auth.interface";
 import { verifyGoogleIdToken } from "./provider/google.provider";
 
@@ -37,20 +38,172 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
 
   const hashedPassword = await bcrypt.hash(password, 8);
 
+  const expirationSeconds = 5 * 60;
+  // save temperory in reddis for verify email
+  const registerDataPayload = {
+    name,
+    email,
+    password: hashedPassword,
+  };
+
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const otpkey = `verify-otp-key=${email}`;
+  const registerVerifyEmailKey = `verify-user-registration=${email}`;
+
+  await reddisClient.set(otpkey, otp, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
+    },
+  });
+
+  await reddisClient.set(
+    registerVerifyEmailKey,
+    JSON.stringify(registerDataPayload),
+    {
+      expiration: {
+        type: "EX",
+        value: expirationSeconds,
+      },
+    },
+  );
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/template/verify-email.ejs",
+  );
+  const templateData = {
+    name,
+    email,
+    otp,
+    expiryTime: expirationSeconds / 60,
+    appName: "PH-Healthcare",
+  };
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.smtp_sender,
+    to: email,
+    subject: "verify email to register account",
+    html,
+  });
+
+  // const createdUser = await prisma.user.create({
+  //   data: {
+  //     name,
+  //     email,
+  //     password: hashedPassword,
+  //     role: Role.PATIENT,
+  //     status: UserStatus.ACTIVE,
+  //     emailVerified: false,
+  //     patient: {
+  //       create: { name, email },
+  //     },
+  //   },
+  //   omit: { password: true },
+  //   include: { patient: true },
+  // });
+
+  // const { patient, ...user } = createdUser;
+  // const jwtPayload = {
+  //   userId: user.id,
+  //   name: user.name,
+  //   email: user.email,
+  //   role: user.role,
+  // };
+
+  // const accessToken = jwtUtils.createToken(
+  //   jwtPayload,
+  //   config.jwt_access_secret,
+  //   config.jwt_access_expires_in as SignOptions,
+  // );
+
+  // const refreshToken = jwtUtils.createToken(
+  //   jwtPayload,
+  //   config.jwt_refresh_secret,
+  //   config.jwt_refresh_expires_in as SignOptions,
+  // );
+
+  // return {
+  //   user,
+  //   patient,
+  //   accessToken,
+  //   refreshToken,
+  // };
+};
+
+const verifyRegisterPatiend = async (payload: IVerifyPatiendPaload) => {
+  const email = payload.email.trim().toLowerCase();
+  const otp = payload.otp;
+  const isUserExist = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (isUserExist) {
+    throw new Error("User already exit");
+  }
+
+  const otpkey = `verify-otp-key=${email}`;
+  const registerVerifyEmailKey = `verify-user-registration=${email}`;
+
+  const otpValue = await reddisClient.get(otpkey);
+  const registerPatiendData = await reddisClient.get(registerVerifyEmailKey);
+
+  if (!otpValue) {
+    throw new Error("otp invalid");
+  }
+
+  if (!registerPatiendData) {
+    throw new Error("patiend data not exit");
+  }
+
+  if (otp !== otpValue) {
+    throw new Error("OTP doesn't match. try again.");
+  }
+
+  const patientPayload: IRegisterPatientPayload =
+    JSON.parse(registerPatiendData);
   const createdUser = await prisma.user.create({
     data: {
-      name,
-      email,
-      password: hashedPassword,
+      name: patientPayload.name,
+      email: patientPayload.email,
+      password: patientPayload.password,
       role: Role.PATIENT,
       status: UserStatus.ACTIVE,
-      emailVerified: false,
+      emailVerified: true,
       patient: {
-        create: { name, email },
+        create: {
+          name: patientPayload.name,
+          email: patientPayload.email,
+          contactNumber: patientPayload?.patient?.contactNumber || "",
+        },
       },
     },
     omit: { password: true },
     include: { patient: true },
+  });
+  await reddisClient.del(otpkey);
+  await reddisClient.del(registerVerifyEmailKey);
+
+  const tempatePath = path.join(
+    process.cwd(),
+    "src/app/template/patient-welcome-email.ejs",
+  );
+
+  const templateData = {
+    name: createdUser.name,
+    appName: "PH-Healthcare",
+  };
+
+  const html = await ejs.renderFile(tempatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.smtp_sender,
+    to: email,
+    subject: "Welcome To PH Healthcare System",
+    // text : `Your OTP is ${otp}`
+    // html: `<h1>Your OTP is ${otp}</h1>`
+    html,
   });
 
   const { patient, ...user } = createdUser;
@@ -538,6 +691,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 
 export const AuthService = {
   registerPatient,
+  verifyRegisterPatiend,
   loginUser,
   getMe,
   refreshToken,
